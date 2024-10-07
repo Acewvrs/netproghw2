@@ -67,6 +67,15 @@ int strings_letters_match(char* word, char* word2) {
     return num_match;
 }
 
+// close an established socket; reset username and socket
+void close_socket(int* server_socks, char** usernames, int i) {
+    printf("Server on %d closed\n", server_socks[i]);
+    close(server_socks[i]);
+    server_socks[i] = 0;
+    free(usernames[i]);
+    usernames[i] = NULL;
+}
+
 int main(int argc, char ** argv ) {
     if (argc != 5) {
         fprintf(stderr, "ERROR: Invalid argument(s)\nUSAGE: ./word_guess.out [seed] [port] [dictionary_file] [longest_word_length]\n");
@@ -124,7 +133,7 @@ int main(int argc, char ** argv ) {
 
     // printf("hidden: %s", hidden_word);
     // #=============================================================================
-    int server_socks[5] = {0, 0, 0, 0, 0};
+    int* server_socks = calloc(5, sizeof(int));
     char** usernames = calloc(5, sizeof(char*));
 
     int					sockfd;
@@ -165,7 +174,9 @@ int main(int argc, char ** argv ) {
 
     int num_connected = 0;
     char* buffer = calloc(MAXLINE, sizeof(char));
-    while (1) {
+
+    bool guess_correct = false;
+    while (true) {
         readfds = reads;
 
         // Check if any of the connected servers have sent data
@@ -210,12 +221,15 @@ int main(int argc, char ** argv ) {
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
                     // Server closed connection
-                    printf("Server on %d closed\n", server_socks[i]);
+                    // printf("Server on %d closed\n", server_socks[i]);
+                    // FD_CLR(server_socks[i], &reads);
+                    // close(server_socks[i]);
+                    // server_socks[i] = 0;
+                    // free(usernames[i]);
+                    // usernames[i] = NULL;
+                    // num_connected--;
                     FD_CLR(server_socks[i], &reads);
-                    close(server_socks[i]);
-                    server_socks[i] = 0;
-                    free(usernames[i]);
-                    usernames[i] = NULL;
+                    close_socket(server_socks, usernames, i);
                     num_connected--;
                 } else if (n > 0) {
                     remove_newline(buffer);
@@ -247,14 +261,12 @@ int main(int argc, char ** argv ) {
                             sprintf(msg, "There are %d player(s) playing. The secret word is %d letter(s).\n", num_connected, stringSize(hidden_word));
                         }
                         else {
-                            sprintf(msg, "Username %s is already taken, please enter a different username\n", buffer);
+                            sprintf(msg, "Username %s is already taken, please enter a different username\n", username);
                         }
                         send(server_socks[i], msg, strlen(msg), 0);                      
                     }
                     else {
                         // user is guessing the word
-                        // printf("%s \n", buffer);
-                        // printf("hidden word: %s\n", hidden_word);
                         int guess_len = stringSize(buffer);
                         if (guess_len != stringSize(hidden_word)) {
                             sprintf(msg, "Invalid guess length. The secret word is %d letter(s).\n", stringSize(hidden_word));
@@ -265,10 +277,26 @@ int main(int argc, char ** argv ) {
                             int exact_match = strings_position_match(hidden_word, buffer);
                             int letters_match = strings_letters_match(hidden_word, buffer);
 
-                            sprintf(msg, "%s guessed %s: %d letter(s) were correct and %d letter(s) were correctly placed.\n", usernames[i], buffer, letters_match, exact_match);
+                            // check if the guess is correct
+                            if (letters_match == stringSize(hidden_word)) {
+                                sprintf(msg, "%s has correctly guessed the word %s", usernames[i], hidden_word);
+                                guess_correct = true;
+                            }
+                            else {
+                                sprintf(msg, "%s guessed %s: %d letter(s) were correct and %d letter(s) were correctly placed.\n", usernames[i], buffer, letters_match, exact_match);
+                            }
+
                             for (int j = 0; j < 5; j++) {
                                 if (usernames[j] == NULL) continue;
                                 send(server_socks[j], msg, strlen(msg), 0);
+
+                                if (guess_correct) {
+                                    // close the socket after a user guessed the secret word
+                                    FD_CLR(server_socks[i], &reads);
+                                    close_socket(server_socks, usernames, j);
+                                    num_connected--;
+                                    // close(server_socks[j]); // close the socket after a user guessed the secret word
+                                }
                             }
                         }
                     }
@@ -328,6 +356,7 @@ int main(int argc, char ** argv ) {
 
     // close( listener );
 
+    free(server_socks);
     free(buffer);
     for (int i = 0; i < 5; i++) {
         free(*(usernames + i));
