@@ -39,6 +39,34 @@ char* tolower_string(char* str) {
     return cpy;
 }
 
+int strings_position_match(char* word, char* word2) {
+    int num_match = 0;
+    for (int i = 0; i < stringSize(word) && *(word2 + i); i++) {
+        if (tolower(*(word + i)) == tolower(*(word2 + i))) num_match++;
+    }
+    return num_match;
+}
+
+int strings_letters_match(char* word, char* word2) {
+    int letters[26] = {0};
+    int letters2[26] = {0};
+
+    for (int i = 0; i < stringSize(word); i++) {
+        letters[tolower(word[i]) - 'a']++;
+    }
+
+    for (int i = 0; i < stringSize(word2); i++) {
+        letters2[tolower(word2[i]) - 'a']++;
+    }
+
+    int num_match = 0;
+    for (int i = 0; i < 26; i++) {
+        num_match += min(letters[i], letters2[i]);
+    }
+
+    return num_match;
+}
+
 int main(int argc, char ** argv ) {
     if (argc != 5) {
         fprintf(stderr, "ERROR: Invalid argument(s)\nUSAGE: ./word_guess.out [seed] [port] [dictionary_file] [longest_word_length]\n");
@@ -212,6 +240,23 @@ int main(int argc, char ** argv ) {
                     else {
                         // user is guessing the word
                         // printf("%s \n", buffer);
+                        // printf("hidden word: %s\n", hidden_word);
+                        int guess_len = stringSize(buffer);
+                        if (guess_len != stringSize(hidden_word)) {
+                            sprintf(msg, "Invalid guess length. The secret word is %d letter(s).\n", stringSize(hidden_word));
+                            send(server_socks[i], msg, strlen(msg), 0);
+                        }
+                        else {
+                            // send guess result to every other client
+                            int exact_match = strings_position_match(hidden_word, buffer);
+                            int letters_match = strings_letters_match(hidden_word, buffer);
+
+                            sprintf(msg, "%s guessed %s: %d letter(s) were correct and %d letter(s) were correctly placed.\n", usernames[i], buffer, letters_match, exact_match);
+                            for (int j = 0; j < 5; j++) {
+                                if (usernames[j] == NULL) continue;
+                                send(server_socks[j], msg, strlen(msg), 0);
+                            }
+                        }
                     }
                 }
             }
