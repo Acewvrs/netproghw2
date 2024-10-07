@@ -34,7 +34,6 @@ char* tolower_string(char* str) {
     char* cpy = str;
     for(int i = 0; *(str+i); i++){
         *(str + i) = tolower(*(str + i));
-        // printf(" %c ", *(str + i));
     }
     return cpy;
 }
@@ -69,7 +68,7 @@ int strings_letters_match(char* word, char* word2) {
 
 // close an established socket; reset username and socket
 void close_socket(int* server_socks, char** usernames, int i) {
-    printf("Server on %d closed\n", server_socks[i]);
+    // printf("Server on %d closed\n", server_socks[i]);
     close(server_socks[i]);
     server_socks[i] = 0;
     free(usernames[i]);
@@ -123,9 +122,9 @@ int main(int argc, char ** argv ) {
         dict_idx++;
     }
 
-    for (int i = 0; i < num_words; i++) {
-        printf("%s, %d\n", dict[i], stringSize(dict[i]));
-    }
+    // for (int i = 0; i < num_words; i++) {
+    //     printf("%s, %d\n", dict[i], stringSize(dict[i]));
+    // }
     // set random seed
     srand( seed );
 
@@ -198,12 +197,11 @@ int main(int argc, char ** argv ) {
         if (FD_ISSET(sockfd, &readfds)) { 
             // Readline(STDIN_FILENO, port_input, MAXLINE);
             if (num_connected < 5) {
-                printf("connected!\n");
+                // printf("connected!\n");
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 // printf("Connected to port %d\n", serv_port);
                 sprintf(msg, "Welcome to Guess the Word, please enter your username.\n");
                 int len = sizeof(servaddr);
-                // Sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&servaddr, &len);
                 send(newsockfd, msg, strlen(msg), 0);
                 // find the empty socket pos
                 for (int i = 0; i < 5; i++) {
@@ -219,7 +217,7 @@ int main(int argc, char ** argv ) {
                 num_connected++;
             }
             else {
-                printf("Out of connections...\n");
+                // printf("Out of connections...\n");
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 close(newsockfd);
             }
