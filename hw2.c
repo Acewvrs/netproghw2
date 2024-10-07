@@ -164,6 +164,7 @@ int main(int argc, char ** argv ) {
     FD_SET(sockfd, &reads); // Add stdin to set
 
     int num_connected = 0;
+    char* buffer = calloc(MAXLINE, sizeof(char));
     while (1) {
         readfds = reads;
 
@@ -174,10 +175,6 @@ int main(int argc, char ** argv ) {
             exit(1);
         }
 
-        // for (int i = 0; i < 5; i++) {
-        //     printf("%d \n", server_socks[i]);
-        // }
-        printf("num connected: %d \n", num_connected);
         if (FD_ISSET(sockfd, &readfds)) { 
             // Readline(STDIN_FILENO, port_input, MAXLINE);
             if (num_connected < 5) {
@@ -210,7 +207,6 @@ int main(int argc, char ** argv ) {
         for (int i = 0; i < 5; i++) {
             if (server_socks[i] > 0 && FD_ISSET(server_socks[i], &readfds)) {
                 //  at least one server sent a message
-                char* buffer = calloc(MAXLINE, sizeof(char));
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
                     // Server closed connection
@@ -226,17 +222,26 @@ int main(int argc, char ** argv ) {
                     buffer[stringSize(buffer)] = '\0';
                         
                     if (usernames[i] == NULL) {
-                         // user is setting the username
+                        // user is setting the username
+                        char* username = calloc(strlen(buffer), sizeof(char));
+                        strcpy(username, buffer);
+
+                        // check if the username is already in use
                         bool duplicate = false;
                         for (int j = 0; j < 5; j++) {
                             if (usernames[j] == NULL) continue;
-                            else if (strcmp(tolower_string(usernames[j]), tolower_string(buffer)) == 0) {
+                            
+                            // compare the usernames without modifying the original input
+                            char* username_in_use = calloc(strlen(usernames[j]), sizeof(char));
+                            strcpy(username_in_use, usernames[j]);
+                            if (strcmp(tolower_string(username_in_use), tolower_string(buffer)) == 0) {
                                 duplicate = true;
                             }
+                            free(username_in_use);
                         }
                        
                         if (!duplicate) {
-                            usernames[i] = buffer;
+                            usernames[i] = username;
                             sprintf(msg, "Let's start playing, %s\n", usernames[i]);
                             send(server_socks[i], msg, strlen(msg), 0);    
                             sprintf(msg, "There are %d player(s) playing. The secret word is %d letter(s).\n", num_connected, stringSize(hidden_word));
@@ -244,7 +249,7 @@ int main(int argc, char ** argv ) {
                         else {
                             sprintf(msg, "Username %s is already taken, please enter a different username\n", buffer);
                         }
-                        send(server_socks[i], msg, strlen(msg), 0);                       
+                        send(server_socks[i], msg, strlen(msg), 0);                      
                     }
                     else {
                         // user is guessing the word
@@ -323,6 +328,7 @@ int main(int argc, char ** argv ) {
 
     // close( listener );
 
+    free(buffer);
     for (int i = 0; i < 5; i++) {
         free(*(usernames + i));
     }
