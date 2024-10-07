@@ -177,6 +177,15 @@ int main(int argc, char ** argv ) {
 
     bool guess_correct = false;
     while (true) {
+        // one of the users found the secret word; select another word
+        if (guess_correct) {
+            hidden_word = dict[rand() % num_words];
+            
+            // reset read file descriptors
+            FD_ZERO(&reads);
+            FD_SET(sockfd, &reads);
+            guess_correct = false; 
+        }
         readfds = reads;
 
         // Check if any of the connected servers have sent data
@@ -220,7 +229,7 @@ int main(int argc, char ** argv ) {
                 //  at least one server sent a message
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
-                    // Server closed connection
+                    // Client closed connection
                     // printf("Server on %d closed\n", server_socks[i]);
                     // FD_CLR(server_socks[i], &reads);
                     // close(server_socks[i]);
@@ -231,7 +240,8 @@ int main(int argc, char ** argv ) {
                     FD_CLR(server_socks[i], &reads);
                     close_socket(server_socks, usernames, i);
                     num_connected--;
-                } else if (n > 0) {
+                } 
+                else if (n > 0) {
                     remove_newline(buffer);
                     buffer[stringSize(buffer)] = '\0';
                         
@@ -295,7 +305,6 @@ int main(int argc, char ** argv ) {
                                     FD_CLR(server_socks[i], &reads);
                                     close_socket(server_socks, usernames, j);
                                     num_connected--;
-                                    // close(server_socks[j]); // close the socket after a user guessed the secret word
                                 }
                             }
                         }
