@@ -168,15 +168,19 @@ int main(int argc, char ** argv ) {
         readfds = reads;
 
         // Check if any of the connected servers have sent data
-        int num_ready = select(9, &readfds, NULL, NULL, NULL);
+        int num_ready = select(FD_SETSIZE, &readfds, NULL, NULL, NULL);
         if (num_ready < 0) {
             perror("select error");
             exit(1);
         }
 
-        if (num_connected < 5) { 
+        // for (int i = 0; i < 5; i++) {
+        //     printf("%d \n", server_socks[i]);
+        // }
+        printf("num connected: %d \n", num_connected);
+        if (FD_ISSET(sockfd, &readfds)) { 
             // Readline(STDIN_FILENO, port_input, MAXLINE);
-            if (FD_ISSET(sockfd, &readfds)) {
+            if (num_connected < 5) {
                 printf("connected!\n");
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 // printf("Connected to port %d\n", serv_port);
@@ -196,6 +200,11 @@ int main(int argc, char ** argv ) {
                 // FD_SET(STDIN_FILENO, &reads);
                 FD_SET(newsockfd, &reads);
                 num_connected++;
+            }
+            else {
+                printf("Out of connections...\n");
+                int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
+                close(newsockfd);
             }
         }
         for (int i = 0; i < 5; i++) {
