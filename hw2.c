@@ -155,7 +155,7 @@ int main(int argc, char ** argv ) {
                 sprintf(msg, "Welcome to Guess the Word, please enter your username.\n");
                 int len = sizeof(servaddr);
                 // Sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&servaddr, &len);
-                send(newsockfd, msg, stringSize(msg), 0);
+                send(newsockfd, msg, strlen(msg), 0);
                 // find the empty socket pos
                 for (int i = 0; i < 5; i++) {
                     if (server_socks[i] == 0) {
@@ -177,7 +177,7 @@ int main(int argc, char ** argv ) {
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
                     // Server closed connection
-                    // printf("Server on %d closed\n", server_ports[i]);
+                    printf("Server on %d closed\n", server_socks[i]);
                     FD_CLR(server_socks[i], &reads);
                     close(server_socks[i]);
                     server_socks[i] = 0;
@@ -201,15 +201,17 @@ int main(int argc, char ** argv ) {
                         if (!duplicate) {
                             usernames[i] = buffer;
                             sprintf(msg, "Let's start playing, %s\n", usernames[i]);
+                            send(server_socks[i], msg, strlen(msg), 0);    
+                            sprintf(msg, "There are %d player(s) playing. The secret word is %d letter(s).\n", num_connected, stringSize(hidden_word));
                         }
                         else {
                             sprintf(msg, "Username %s is already taken, please enter a different username\n", buffer);
                         }
-                        send(server_socks[i], msg, stringSize(msg), 0);                       
+                        send(server_socks[i], msg, strlen(msg), 0);                       
                     }
                     else {
                         // user is guessing the word
-                        printf("%s \n", buffer);
+                        // printf("%s \n", buffer);
                     }
                 }
             }
