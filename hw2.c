@@ -367,6 +367,7 @@ int main(int argc, char ** argv ) {
     for (int i = 0; i < 5; i++) {
         free(*(usernames + i));
     }
+    free(usernames);
     free(word);
     for (int i = 0; i < num_words; i++) {
         free(*(dict + i));
