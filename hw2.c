@@ -26,7 +26,7 @@ void remove_newline(char *str) {
     }
 
     if (*ptr == '\r') {
-        *ptr == '\0';
+        *ptr = '\0';
     }
 }
 
@@ -201,7 +201,6 @@ int main(int argc, char ** argv ) {
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 // printf("Connected to port %d\n", serv_port);
                 sprintf(msg, "Welcome to Guess the Word, please enter your username.\n");
-                int len = sizeof(servaddr);
                 send(newsockfd, msg, strlen(msg), 0);
                 // find the empty socket pos
                 for (int i = 0; i < 5; i++) {
