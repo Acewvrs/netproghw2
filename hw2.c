@@ -4,6 +4,29 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <stdbool.h>
+#include <ctype.h>
+#include "../../lib/unp.h"
+// #include "unp.h" 
+
+int stringSize(char *str) {
+    int length = 0;
+    char* ptr = str;
+    // Loop till the NULL character is found
+    while (*ptr != '\0' && *ptr != '\n' && *ptr != '\r' && *ptr) {
+        length++;
+        ptr++;
+    }
+    return length;
+}
+
+void tolower_string(char* str) {
+    printf("%s", str);
+    for(int i = 0; *(str+i); i++){
+        *(str + i) = tolower(*(str + i));
+        // printf(" %c ", *(str + i));
+    }
+    // printf("\n");
+}
 
 int main(int argc, char ** argv ) {
     if (argc != 5) {
@@ -14,7 +37,7 @@ int main(int argc, char ** argv ) {
     int port = atoi(*(argv+1));
     int seed = atoi(*(argv+2));
     char* filepath = *(argv+3);
-    int MAX_LEN = atoi(*(argv+4));
+    int MAX_LEN = atoi(*(argv+4)) + 1;
     
     // handle signals
     // signal( SIGTSTP, signal_handler ); // not required; comment out before submitting
@@ -29,13 +52,15 @@ int main(int argc, char ** argv ) {
         return EXIT_FAILURE;
     }
 
+    char* word = calloc(MAX_LEN, sizeof(char));
     int num_words = 0;
     while(fgets(word, MAX_LEN, file)) {
         num_words++;
     }
 
+    char* test = "test";
+    printf("len: %d \n", stringSize(test));
     // save all valid words
-    char* word = calloc(MAX_LEN, sizeof(char));
     char** dict = calloc(num_words, sizeof(char*));
 
     printf("%d \n", num_words);
@@ -43,16 +68,19 @@ int main(int argc, char ** argv ) {
     // reset file pointer
     fseek(file, 0, SEEK_SET);
 
-    int i = 0;
+    int dict_idx = 0;
     while (fgets(word, MAX_LEN, file)) {
         // if (strlen(word) != 5) continue; 
         tolower_string(word);
-        *(dict+i) = calloc(6, sizeof(char));
-        *(word + 5) = '\0';
-        strcpy(*(dict+i), word);
-        i++;
+        *(dict+dict_idx) = calloc(MAX_LEN, sizeof(char));
+        *(word + stringSize(word)) = '\0';
+        strcpy(*(dict+dict_idx), word);
+        dict_idx++;
     }
 
+    for (int i = 0; i < num_words; i++) {
+        printf("%s, %d\n", dict[i], stringSize(dict[i]));
+    }
     // set random seed
     srand( seed );
 
@@ -184,7 +212,7 @@ int main(int argc, char ** argv ) {
     // close( listener );
 
     free(word);
-    for (int i = 0; i < numWords; i++) {
+    for (int i = 0; i < num_words; i++) {
         free(*(dict + i));
     }
     free(dict);
