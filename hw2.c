@@ -33,8 +33,8 @@ int main(int argc, char ** argv ) {
         return EXIT_FAILURE;
     }
 
-    int port = atoi(*(argv+1));
-    int seed = atoi(*(argv+2));
+    int seed = atoi(*(argv+1));
+    int port = atoi(*(argv+2));
     char* filepath = *(argv+3);
     int MAX_LEN = atoi(*(argv+4)) + 1;
     
@@ -83,25 +83,45 @@ int main(int argc, char ** argv ) {
     // printf("hidden: %s", hidden_word);
     // #=============================================================================
     int server_socks[5] = {0, 0, 0, 0, 0};
-    // int server_ports[5] = {0, 0, 0, 0, 0};
-    int num_connected = 0;
-
-    fd_set readfds, reads;
-
-    // Initialize the file descriptor set
-    FD_ZERO(&readfds);
-    FD_SET(STDIN_FILENO, &reads); // Add stdin to set
+    char* server_ports[5] = {"", "", "", "", ""};
 
     int					sockfd;
-    struct sockaddr_in	servaddr;
+    struct sockaddr_in	servaddr, cliaddr;
     // connect to the server port from STDIN
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
+    // Set SO_REUSEADDR option
+    int optval = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        perror("Error setting SO_REUSEADDR");
+        return 1;
+    }
+
     bzero(&servaddr, sizeof(servaddr));
     servaddr.sin_family      = AF_INET;
-    servaddr.sin_addr.s_addr = htonl(INADDR_ANY);
+    servaddr.sin_addr.s_addr = INADDR_ANY;
     servaddr.sin_port        = htons(port);
 
+    if (bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
+        perror("select error");
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(sockfd, 5) == -1) {
+        perror("listen error");
+        exit(EXIT_FAILURE);
+    }
+
+    // printf("waiting on port %d...\n", port);
+    socklen_t cli_addr_size;
+
+    fd_set readfds, reads;
+    // Initialize the file descriptor set
+    FD_ZERO(&reads);
+    // FD_SET(STDIN_FILENO, &reads);
+    FD_SET(sockfd, &reads); // Add stdin to set
+
+    int num_connected = 0;
     while (1) {
         readfds = reads;
 
@@ -114,33 +134,28 @@ int main(int argc, char ** argv ) {
 
         if (num_connected < 5) { 
             // Readline(STDIN_FILENO, port_input, MAXLINE);
-            // serv_port = atoi(port);
-
-            if (connect(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) < 0) {
-                // printf("Failed to connect to port %d\n", serv_port);
-                close(sockfd);
-            } else {
+            if (FD_ISSET(sockfd, &readfds)) {
+                printf("connected!\n");
+                int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 // printf("Connected to port %d\n", serv_port);
                 char* msg = "Welcome to Guess the Word, please enter your username.\n";
                 int len = sizeof(servaddr);
                 // Sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&servaddr, &len);
-                send(sockfd, msg, strlen(msg), 0);
+                send(newsockfd, msg, stringSize(msg), 0);
                 // find the empty socket pos
                 for (int i = 0; i < 5; i++) {
                     if (server_socks[i] == 0) {
-                        server_socks[i] = sockfd;
+                        server_socks[i] = newsockfd;
                         // server_ports[i] = port;
                         break;
                     }
                 }
 
-                FD_SET(STDIN_FILENO, &reads);
-                FD_SET(sockfd, &reads);
+                // FD_SET(STDIN_FILENO, &reads);
+                FD_SET(newsockfd, &reads);
                 num_connected++;
             }
         }
-
-        
         // for (int i = 0; i < 5; i++) {
         //     if (server_socks[i] > 0 && FD_ISSET(server_socks[i], &readfds)) {
         //         //  at least one server sent a message
