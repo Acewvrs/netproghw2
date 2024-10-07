@@ -19,12 +19,24 @@ int stringSize(char *str) {
     return length;
 }
 
-void tolower_string(char* str) {
+void remove_newline(char *str) {
+    char* ptr = str;
+    while (*ptr != '\r' && *ptr) {
+        ptr++;
+    }
+
+    if (*ptr == '\r') {
+        *ptr == '\0';
+    }
+}
+
+char* tolower_string(char* str) {
+    char* cpy = str;
     for(int i = 0; *(str+i); i++){
         *(str + i) = tolower(*(str + i));
         // printf(" %c ", *(str + i));
     }
-    // printf("\n");
+    return cpy;
 }
 
 int main(int argc, char ** argv ) {
@@ -37,7 +49,9 @@ int main(int argc, char ** argv ) {
     int port = atoi(*(argv+2));
     char* filepath = *(argv+3);
     int MAX_LEN = atoi(*(argv+4)) + 1;
-    
+
+    char msg[MAXLINE];
+
     // handle signals
     // signal( SIGTSTP, signal_handler ); // not required; comment out before submitting
     // signal( SIGINT, SIG_IGN );
@@ -83,7 +97,7 @@ int main(int argc, char ** argv ) {
     // printf("hidden: %s", hidden_word);
     // #=============================================================================
     int server_socks[5] = {0, 0, 0, 0, 0};
-    char* server_ports[5] = {"", "", "", "", ""};
+    char** usernames = calloc(5, sizeof(char*));
 
     int					sockfd;
     struct sockaddr_in	servaddr, cliaddr;
@@ -107,7 +121,7 @@ int main(int argc, char ** argv ) {
         exit(EXIT_FAILURE);
     }
 
-    if (listen(sockfd, 5) == -1) {
+    if (listen(sockfd, 3) == -1) {
         perror("listen error");
         exit(EXIT_FAILURE);
     }
@@ -126,7 +140,7 @@ int main(int argc, char ** argv ) {
         readfds = reads;
 
         // Check if any of the connected servers have sent data
-        int num_ready = select(8, &readfds, NULL, NULL, NULL);
+        int num_ready = select(9, &readfds, NULL, NULL, NULL);
         if (num_ready < 0) {
             perror("select error");
             exit(1);
@@ -138,7 +152,7 @@ int main(int argc, char ** argv ) {
                 printf("connected!\n");
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 // printf("Connected to port %d\n", serv_port);
-                char* msg = "Welcome to Guess the Word, please enter your username.\n";
+                sprintf(msg, "Welcome to Guess the Word, please enter your username.\n");
                 int len = sizeof(servaddr);
                 // Sendto(sockfd, msg, strlen(msg), 0, (struct sockaddr *)&servaddr, &len);
                 send(newsockfd, msg, stringSize(msg), 0);
@@ -156,24 +170,50 @@ int main(int argc, char ** argv ) {
                 num_connected++;
             }
         }
-        // for (int i = 0; i < 5; i++) {
-        //     if (server_socks[i] > 0 && FD_ISSET(server_socks[i], &readfds)) {
-        //         //  at least one server sent a message
-        //         int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
-        //         if (n == 0) {
-        //             // Server closed connection
-        //             // printf("Server on %d closed\n", server_ports[i]);
-        //             FD_CLR(server_socks[i], &reads);
-        //             close(server_socks[i]);
-        //             server_socks[i] = 0;
-        //             // server_ports[i] = 0;
-        //             num_connected--;
-        //         } else if (n > 0) {
-        //             buffer[n] = '\0';
-        //             printf("%d %s", server_ports[i], buffer);
-        //         }
-        //     }
-        // }
+        for (int i = 0; i < 5; i++) {
+            if (server_socks[i] > 0 && FD_ISSET(server_socks[i], &readfds)) {
+                //  at least one server sent a message
+                char* buffer = calloc(MAXLINE, sizeof(char));
+                int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
+                if (n == 0) {
+                    // Server closed connection
+                    // printf("Server on %d closed\n", server_ports[i]);
+                    FD_CLR(server_socks[i], &reads);
+                    close(server_socks[i]);
+                    server_socks[i] = 0;
+                    free(usernames[i]);
+                    usernames[i] = NULL;
+                    num_connected--;
+                } else if (n > 0) {
+                    remove_newline(buffer);
+                    buffer[stringSize(buffer)] = '\0';
+                        
+                    if (usernames[i] == NULL) {
+                         // user is setting the username
+                        bool duplicate = false;
+                        for (int j = 0; j < 5; j++) {
+                            if (usernames[j] == NULL) continue;
+                            else if (strcmp(tolower_string(usernames[j]), tolower_string(buffer)) == 0) {
+                                duplicate = true;
+                            }
+                        }
+                       
+                        if (!duplicate) {
+                            usernames[i] = buffer;
+                            sprintf(msg, "Let's start playing, %s\n", usernames[i]);
+                        }
+                        else {
+                            sprintf(msg, "Username %s is already taken, please enter a different username\n", buffer);
+                        }
+                        send(server_socks[i], msg, stringSize(msg), 0);                       
+                    }
+                    else {
+                        // user is guessing the word
+                        printf("%s \n", buffer);
+                    }
+                }
+            }
+        }
     }
 
     // /* ==================== network setup code above ===================== */
@@ -227,6 +267,9 @@ int main(int argc, char ** argv ) {
 
     // close( listener );
 
+    for (int i = 0; i < 5; i++) {
+        free(*(usernames + i));
+    }
     free(word);
     for (int i = 0; i < num_words; i++) {
         free(*(dict + i));
