@@ -5,8 +5,8 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <ctype.h>
-#include "../../lib/unp.h"
-// #include "unp.h" 
+// #include "../../lib/unp.h"
+#include "unp.h" 
 
 // find the length the of the string, ignore all NULL characters
 int stringSize(char *str) {
@@ -88,13 +88,6 @@ int main(int argc, char ** argv ) {
 
     char msg[MAXLINE];
 
-    // handle signals
-    // signal( SIGTSTP, signal_handler ); // not required; comment out before submitting
-    // signal( SIGINT, SIG_IGN );
-    // signal( SIGTERM, SIG_IGN );
-    // signal( SIGUSR2, SIG_IGN );
-    // signal( SIGUSR1, signal_handler );
-
     FILE *file = fopen(filepath, "r");
     if (file == NULL) {
         fprintf(stderr, "ERROR: INVALID FILE PATH\n");
@@ -122,22 +115,18 @@ int main(int argc, char ** argv ) {
         dict_idx++;
     }
 
-    // for (int i = 0; i < num_words; i++) {
-    //     printf("%s, %d\n", dict[i], stringSize(dict[i]));
-    // }
     // set random seed
     srand( seed );
 
     char* hidden_word = dict[rand() % num_words];
 
-    // printf("hidden: %s", hidden_word);
-    // #=============================================================================
+    // saved sockets and usernames each client
     int* server_socks = calloc(5, sizeof(int));
     char** usernames = calloc(5, sizeof(char*));
 
     int					sockfd;
     struct sockaddr_in	servaddr, cliaddr;
-    // connect to the server port from STDIN
+
     sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
     // Set SO_REUSEADDR option
@@ -211,12 +200,11 @@ int main(int argc, char ** argv ) {
                     }
                 }
 
-                // FD_SET(STDIN_FILENO, &reads);
                 FD_SET(newsockfd, &reads);
                 num_connected++;
             }
             else {
-                // printf("Out of connections...\n");
+                // Out of connections
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 close(newsockfd);
             }
@@ -227,13 +215,6 @@ int main(int argc, char ** argv ) {
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
                     // Client closed connection
-                    // printf("Server on %d closed\n", server_socks[i]);
-                    // FD_CLR(server_socks[i], &reads);
-                    // close(server_socks[i]);
-                    // server_socks[i] = 0;
-                    // free(usernames[i]);
-                    // usernames[i] = NULL;
-                    // num_connected--;
                     FD_CLR(server_socks[i], &reads);
                     close_socket(server_socks, usernames, i);
                     num_connected--;
@@ -311,57 +292,7 @@ int main(int argc, char ** argv ) {
         }
     }
 
-    // /* ==================== network setup code above ===================== */
-    // running = true;
-    // while ( running )
-    // {
-    //     struct sockaddr_in remote_client;
-    //     int addrlen = sizeof( remote_client );
-
-    //     int newsd = accept( listener, (struct sockaddr *)&remote_client,
-    //                         (socklen_t *)&addrlen );
-    //     // if ( newsd < 0 ) { perror( "accept() failed" ); continue; }
-
-    //     if (!running) break;
-    //     if (newsd >= 0) {
-    //         printf("MAIN: rcvd incoming connection request\n");
-        
-    //         /* ==================== application-layer protocol below ============= */
-    //         pthread_t thread;
-    //         char* hidden_word = calloc(6, sizeof(char)); // this gets freed in main()
-    //         int random_idx = rand() % numWords;
-
-    //         strcpy(hidden_word, *(dict + random_idx));
-
-    //         // add this to the array of hidden words...
-    //         pthread_mutex_lock( &mutex_on_words ); // MUTEX
-    //         words = realloc( words, (words_size + 1 ) * sizeof( char * ) );
-    //         toupper_string(hidden_word);
-    //         *(words + words_size - 1) = hidden_word;
-    //         *(words + words_size) = NULL;
-    //         words_size++;
-    //         pthread_mutex_unlock( &mutex_on_words ); // MUTEX ENDS
-    //         // printf("hidden_word: %s\nactual word: %s, size: %d\n idx: %d\n", hidden_word, *(dict + random_idx), (int) strlen(hidden_word), random_idx);
-
-    //         // pass these as arguments into client_guesss
-    //         arguments args;
-    //         args.newsd = newsd;
-    //         args.hidden_word = hidden_word;
-    //         args.dict = dict;
-    //         args.numWords = numWords;
-            
-    //         // create a thread... (continues in client_guess())
-    //         pthread_create( &thread, NULL, client_guess, &args );
-            
-    //         // free up memory
-    //         // free(hidden_word);
-    //     }
-        
-    // }
-
-
-    // close( listener );
-
+    // free memory
     free(server_socks);
     free(buffer);
     for (int i = 0; i < 5; i++) {
