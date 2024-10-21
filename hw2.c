@@ -5,7 +5,7 @@
 #include <unistd.h>
 #include <stdbool.h>
 #include <ctype.h>
-// #include "../../lib/unp.h"
+//#include "../lib/unp.h"
 #include "unp.h" 
 
 // find the length the of the string, ignore all NULL characters
@@ -18,18 +18,18 @@ int stringSize(char *str) {
     }
     return length;
 }
-
+//removes the carriage return from the string
 void remove_newline(char *str) {
     char* ptr = str;
     while (*ptr != '\r' && *ptr) {
         ptr++;
     }
 
-    if (*ptr == '\r') {
+    if (*ptr == '\r' || *ptr == '\n') {
         *ptr = '\0';
     }
 }
-
+//returns a string that is the lowercase of the input string
 char* tolower_string(char* str) {
     char* cpy = str;
     for(int i = 0; *(str+i); i++){
@@ -45,7 +45,7 @@ int strings_position_match(char* word, char* word2) {
     }
     return num_match;
 }
-
+//returns the number of letters that 
 int strings_letters_match(char* word, char* word2) {
     int letters[26] = {0};
     int letters2[26] = {0};
@@ -66,13 +66,50 @@ int strings_letters_match(char* word, char* word2) {
     return num_match;
 }
 
-// close an established socket; reset username and socket
+// close a socket and removes the username and password used
 void close_socket(int* server_socks, char** usernames, int i) {
-    // printf("Server on %d closed\n", server_socks[i]);
     close(server_socks[i]);
     server_socks[i] = 0;
     free(usernames[i]);
     usernames[i] = NULL;
+}
+//save the word file to an array
+void saveWords(char** dict, FILE* inputFile, char* word, int MAX_LEN){
+    // reset file pointer if necessary
+    fseek(inputFile, 0, SEEK_SET);
+
+    int dict_idx = 0;
+    while (fgets(word, MAX_LEN, inputFile)) {
+        tolower_string(word);
+        *(dict+dict_idx) = calloc(MAX_LEN, sizeof(char));
+        *(word + stringSize(word)) = '\0';
+        strcpy(*(dict+dict_idx), word);
+        dict_idx++;
+    }
+}
+
+int initServer(struct sockaddr_in* server, int port){
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    int optval = 1;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
+        perror("Error setting SO_REUSEADDR");
+        return 1;
+    }
+    bzero(&server, sizeof(server));
+    server -> sin_family      = AF_INET;
+    server -> sin_addr.s_addr = INADDR_ANY;
+    server -> sin_port        = htons(port);
+
+    if (bind(sockfd, (struct sockaddr*)&server, sizeof(server)) == -1) {
+        perror("select error");
+        exit(EXIT_FAILURE);
+    }
+
+    if (listen(sockfd, 3) == -1) {
+        perror("listen error");
+        exit(EXIT_FAILURE);
+    }
+    return sockfd;
 }
 
 int main(int argc, char ** argv ) {
@@ -99,76 +136,37 @@ int main(int argc, char ** argv ) {
     while(fgets(word, MAX_LEN, file)) {
         num_words++;
     }
-
     // save all valid words
     char** dict = calloc(num_words, sizeof(char*));
-
-    // reset file pointer
-    fseek(file, 0, SEEK_SET);
-
-    int dict_idx = 0;
-    while (fgets(word, MAX_LEN, file)) {
-        tolower_string(word);
-        *(dict+dict_idx) = calloc(MAX_LEN, sizeof(char));
-        *(word + stringSize(word)) = '\0';
-        strcpy(*(dict+dict_idx), word);
-        dict_idx++;
-    }
-
+    saveWords(dict, file, word, MAX_LEN);
     // set random seed
     srand( seed );
 
     char* hidden_word = dict[rand() % num_words];
-
     // saved sockets and usernames each client
     int* server_socks = calloc(5, sizeof(int));
     char** usernames = calloc(5, sizeof(char*));
 
     int					sockfd;
     struct sockaddr_in	servaddr, cliaddr;
+    sockfd = initServer(&servaddr, port);
 
-    sockfd = socket(AF_INET, SOCK_STREAM, 0);
-
-    // Set SO_REUSEADDR option
-    int optval = 1;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &optval, sizeof(optval)) < 0) {
-        perror("Error setting SO_REUSEADDR");
-        return 1;
-    }
-
-    bzero(&servaddr, sizeof(servaddr));
-    servaddr.sin_family      = AF_INET;
-    servaddr.sin_addr.s_addr = INADDR_ANY;
-    servaddr.sin_port        = htons(port);
-
-    if (bind(sockfd, (struct sockaddr*)&servaddr, sizeof(servaddr)) == -1) {
-        perror("select error");
-        exit(EXIT_FAILURE);
-    }
-
-    if (listen(sockfd, 3) == -1) {
-        perror("listen error");
-        exit(EXIT_FAILURE);
-    }
-
-    // printf("waiting on port %d...\n", port);
     socklen_t cli_addr_size;
 
     fd_set readfds, reads;
     // Initialize the file descriptor set
     FD_ZERO(&reads);
-    // FD_SET(STDIN_FILENO, &reads);
     FD_SET(sockfd, &reads); // Add stdin to set
 
     int num_connected = 0;
     char* buffer = calloc(MAXLINE, sizeof(char));
 
     bool guess_correct = false;
+    //start the game
     while (true) {
         // one of the users found the secret word; select another word
         if (guess_correct) {
             hidden_word = dict[rand() % num_words];
-            
             // reset read file descriptors
             FD_ZERO(&reads);
             FD_SET(sockfd, &reads);
@@ -184,18 +182,14 @@ int main(int argc, char ** argv ) {
         }
 
         if (FD_ISSET(sockfd, &readfds)) { 
-            // Readline(STDIN_FILENO, port_input, MAXLINE);
             if (num_connected < 5) {
-                // printf("connected!\n");
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
-                // printf("Connected to port %d\n", serv_port);
                 sprintf(msg, "Welcome to Guess the Word, please enter your username.\n");
                 send(newsockfd, msg, strlen(msg), 0);
                 // find the empty socket pos
                 for (int i = 0; i < 5; i++) {
                     if (server_socks[i] == 0) {
                         server_socks[i] = newsockfd;
-                        // server_ports[i] = port;
                         break;
                     }
                 }
@@ -204,7 +198,6 @@ int main(int argc, char ** argv ) {
                 num_connected++;
             }
             else {
-                // Out of connections
                 int newsockfd = accept(sockfd, (struct sockaddr *) &cliaddr, &cli_addr_size);
                 close(newsockfd);
             }
@@ -214,7 +207,6 @@ int main(int argc, char ** argv ) {
                 //  at least one server sent a message
                 int n = recv(server_socks[i], buffer, MAXLINE - 1, 0);
                 if (n == 0) {
-                    // Client closed connection
                     FD_CLR(server_socks[i], &reads);
                     close_socket(server_socks, usernames, i);
                     num_connected--;
@@ -291,8 +283,6 @@ int main(int argc, char ** argv ) {
             }
         }
     }
-
-    // free memory
     free(server_socks);
     free(buffer);
     for (int i = 0; i < 5; i++) {
